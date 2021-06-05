@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css"
+    />
+    <title>Cards 🃏</title>
+  </head>
+
+  <body>
+    <header>
+      <h1>Cards 🃏</h1>
+    </header>
+    <main>
+      <div>
+        <form action="" onsubmit="joinSession(event)">
+          <label for="sessionId">Session ID</label>
+          <input type="text" id="sessionId" autocomplete="off" />
+          <label for="userName">Username</label>
+          <input type="text" id="userName" autocomplete="off" />
+          <button>Join</button>
+          <button>Create</button>
+        </form>
+      </div>
+      <hr />
+      <div id="currentSessionDetails">
+        <div id="currentSession"></div>
+        <div><ul id="currentPlayer"></ul></div>
+      </div>
+      <div id="gameForm">
+        <form action="" onsubmit="gameEvent(event)">
+          <label for="yourMove">Your Move</label>
+          <input type="text" id="yourMove" autocomplete="off" />
+          <input type="hidden" id="currentSessionId" value="" />
+          <input type="hidden" id="currentUserName" value="" />
+          <button>Send</button>
+        </form>
+      </div>
+      <div id="gameCanvas"></div>
+    </main>
+    <footer>
+      <p>🤭</p>
+    </footer>
+
+    <script>
+      var FancyWebSocket = function (url) {
+        var conn = new WebSocket(url);
+
+        var callbacks = {};
+
+        this.bind = function (event_name, callback) {
+          callbacks[event_name] = callbacks[event_name] || [];
+          callbacks[event_name].push(callback);
+          return this; // chainable
+        };
+
+        this.send = function (event_name, event_data) {
+          var payload = JSON.stringify({ event: event_name, data: event_data });
+          conn.send(payload); // <= send JSON data to socket server
+          return this;
+        };
+
+        // dispatch to the right handlers
+        conn.onmessage = function (evt) {
+          var json = JSON.parse(evt.data);
+          dispatch(json.event, json.data);
+        };
+
+        conn.onclose = function () {
+          dispatch("close", null);
+        };
+        conn.onopen = function () {
+          dispatch("open", null);
+        };
+
+        var dispatch = function (event_name, message) {
+          var chain = callbacks[event_name];
+          if (typeof chain == "undefined") return; // no callbacks for this event
+          for (var i = 0; i < chain.length; i++) {
+            chain[i](message);
+          }
+        };
+      };
+
+      var websock = new FancyWebSocket(
+        "ws://" + window.location.host + "/ws/session"
+      );
+
+      websock.bind("GameEvent", function (data) {
+        document.getElementById("gameCanvas").innerHTML =
+          "<p><strong>" +
+          data.session.id +
+          " : " +
+          data.session.username +
+          "</strong></p>";
+
+        for (var player in data.players) {
+          var playerListItem = document.createElement("li");
+          playerListItem.innerText = player;
+          document.getElementById("currentPlayers").appendChild(playerListItem);
+        }
+      });
+
+      websock.bind("SessionUpdateEvent", function (data) {
+        document.getElementById("currentSession").innerHTML =
+          "<p>" + data.session + " : " + data.message + "</p>";
+      });
+
+      var joinSession = function (evt) {
+        websock.send("JoinSessionEvent", {
+          session: {
+            id: document.getElementById("sessionId").value,
+            username: document.getElementById("userName").value,
+          },
+        });
+        document.getElementById("currentSessionId").value =
+          document.getElementById("sessionId").value;
+
+        document.getElementById("currentUserName").value =
+          document.getElementById("userName").value;
+      };
+
+      var gameEvent = function (evt) {
+        websock.send(
+          JSON.stringify({
+            event: "GameEvent",
+            data: {
+              session: {
+                id: document.getElementById("currentSessionId").value,
+                username: document.getElementById("currentUserName").value,
+              },
+              message: document.getElementById("yourMove").value,
+            },
+          })
+        );
+      };
+    </script>
+  </body>
+</html>
+
+<!-- 
+
+
+
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Chat</title>
+    </head>
+    <body>
+        <h1></h1>
+    <div class="wrapper">
+        
+    </div>
+
+        <h1>WebSocket Chat</h1>
+        <form action="" onsubmit="sendMessage(event)">
+            <input type="text" id="messageText" autocomplete="off"/>
+            <button>Send</button>
+        </form>
+        <ul id='messages'>
+        </ul>
+        <script>
+            var ws = new WebSocket("ws://localhost:8000/ws");
+            ws.onmessage = function(event) {
+                var messages = document.getElementById('messages')
+                var message = document.createElement('li')
+                var content = document.createTextNode(event.data)
+                message.appendChild(content)
+                messages.appendChild(message)
+            };
+            function sendMessage(event) {
+                var input = document.getElementById("messageText")
+                ws.send(input.value)
+                input.value = ''
+                event.preventDefault()
+            }
+        </script>
+    </body>
+</html> -->
